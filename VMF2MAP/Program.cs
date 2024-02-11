@@ -63,7 +63,7 @@ namespace VMF2MAP
                 if (string.IsNullOrWhiteSpace(brushes))
                 {
                    // Console.WriteLine("Skipping {props} brush analysis, no brushes found.");
-                    continue;
+                    //continue;
                 }
 
                 var brushMatches = PcreRegex.Matches(brushes, brushesMatcher);
