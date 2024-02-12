@@ -19,7 +19,7 @@ namespace VMF2MAP
         static string propsBrushMatcher = @"\{(?<properties>[^\{\}]+)(?<brushes>(?:\s\w+\s*\n\s+\{(?:[^\{\}]+|(?R))*\}(?:[^\{\}]+))*)\s*\}";
         static string brushesMatcher = @"(?<brushtype>\w+)\s*\n\s+(?<brush>\{(?:[^\{\}]+|(?R))*\})";
 
-        static Regex uvaxisRegex = new Regex(@"\s*\[\s*([-\d\.\+E]+)\s*([-\d\.\+E]+)\s*([-\d\.\+E]+)\s*([-\d\.\+E]+)\s*\]\s*([-\d\.\+E]+)\s*", RegexOptions.IgnoreCase|RegexOptions.Compiled);
+        static Regex uvaxisRegex = new Regex(@"\s*\[\s*([-\d\.\+E]+)\s+([-\d\.\+E]+)\s+([-\d\.\+E]+)\s+([-\d\.\+E]+)\s*\]\s*([-\d\.\+E]+)\s*", RegexOptions.IgnoreCase|RegexOptions.Compiled);
 
 
         const int detailFlag = 0x8000000;
@@ -51,6 +51,13 @@ namespace VMF2MAP
                 }
 
                 EntityProperties props = EntityProperties.FromString(properties);
+
+                Vector3? entityOffset = null;
+
+                if (props.ContainsKey("origin"))
+                {
+                    entityOffset = parseVector3(props["origin"]);
+                }
 
                 bool isDetail = props["classname"].EndsWith("detail", StringComparison.InvariantCultureIgnoreCase);
 
@@ -84,8 +91,15 @@ namespace VMF2MAP
 
                     var brushPropsSubGroupsMatch = PcreRegex.Match(brushData, propsBrushMatcher);
 
-                    string brushProps = brushPropsSubGroupsMatch.Groups["properties"].Value;
+                    string brushPropsString = brushPropsSubGroupsMatch.Groups["properties"].Value;
                     string brushSubGroups = brushPropsSubGroupsMatch.Groups["brushes"].Value;
+
+                    EntityProperties brushProps = EntityProperties.FromString(brushPropsString);
+
+                    if (brushProps.ContainsKey("origin"))
+                    {
+                        Console.WriteLine("Brush itself contains origin? Huh.");
+                    }
 
                     // Subgroup are sides.
                     var subGroupMatches = PcreRegex.Matches(brushSubGroups, brushesMatcher);
@@ -108,7 +122,48 @@ namespace VMF2MAP
                         EntityProperties sideProps = EntityProperties.FromString(sidePropsString);
 
                         output.Append("\t\t");
-                        output.Append(sideProps["plane"].Replace("(","( ").Replace(")"," )"));
+
+                        if(entityOffset is null)
+                        {
+                            output.Append(sideProps["plane"].Replace("(", "( ").Replace(")", " )"));
+                        } else
+                        {
+                            Vector3[] vectors = parseVector3Array(sideProps["plane"]);
+                            if(vectors.Length != 3)
+                            {
+                                Console.WriteLine($"plane consisted of {vectors.Length} vectors. Wtf. This will be ruined.");
+                                output.Append(sideProps["plane"].Replace("(", "( ").Replace(")", " )"));
+                            } else
+                            {
+                                vectors[0] -= entityOffset.Value;
+                                vectors[1] -= entityOffset.Value;
+                                vectors[2] -= entityOffset.Value;
+
+                                output.Append("( ");
+                                output.Append(vectors[0].X.ToString("0.###"));
+                                output.Append(" ");
+                                output.Append(vectors[0].Y.ToString("0.###"));
+                                output.Append(" ");
+                                output.Append(vectors[0].Z.ToString("0.###"));
+                                output.Append(" ");
+                                output.Append(" ) ( ");
+                                output.Append(vectors[1].X.ToString("0.###"));
+                                output.Append(" ");
+                                output.Append(vectors[1].Y.ToString("0.###"));
+                                output.Append(" ");
+                                output.Append(vectors[1].Z.ToString("0.###"));
+                                output.Append(" ");
+                                output.Append(" ) ( ");
+                                output.Append(vectors[2].X.ToString("0.###"));
+                                output.Append(" ");
+                                output.Append(vectors[2].Y.ToString("0.###"));
+                                output.Append(" ");
+                                output.Append(vectors[2].Z.ToString("0.###"));
+                                output.Append(" ) ");
+                            }
+                        }
+
+
                         //output.Append(" (");
                         output.Append(" ");
 
@@ -168,7 +223,7 @@ namespace VMF2MAP
                                     material = "system/hint";
                                     break;
                                 case "tools/toolsnodraw":
-                                    material = "system/nodraw";
+                                    material = "system/caulk";
                                     break;
                                 case "tools/toolsplayerclip":
                                 case "tools/toolsclip":
@@ -244,6 +299,49 @@ namespace VMF2MAP
             }
 
             File.WriteAllText($"{args[0]}.map",output.ToString());
+        }
+
+
+
+        static Regex emptySpaceRegex = new Regex(@"\s+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        static private Vector3? parseVector3(string colorString)
+        {
+            string prefilteredColor = emptySpaceRegex.Replace(colorString, " ");
+            string[] components = prefilteredColor.Split(' ');
+
+            if (components.Length < 3)
+            {
+                Trace.WriteLine("Vector3 with less than 3 components, skipping, weird.");
+                return null;
+            }
+
+            Vector3 parsedColor = new Vector3();
+
+            bool parseSuccess = true;
+            parseSuccess = parseSuccess && float.TryParse(components[0], out parsedColor.X);
+            parseSuccess = parseSuccess && float.TryParse(components[1], out parsedColor.Y);
+            parseSuccess = parseSuccess && float.TryParse(components[2], out parsedColor.Z);
+
+            if (!parseSuccess) return null;
+
+            return parsedColor;
+        }
+
+        static Regex numberVectorRegex = new Regex(@"([-\d\.\+E]+)\s+([-\d\.\+E]+)\s+([-\d\.\+E]+)",RegexOptions.Compiled|RegexOptions.IgnoreCase);
+
+        static private Vector3[] parseVector3Array(string numbersString)
+        {
+            List<Vector3> retVal = new List<Vector3>();
+            MatchCollection matches = numberVectorRegex.Matches(numbersString);
+            foreach(Match match in matches)
+            {
+                Vector3? vector = parseVector3(match.Value);
+                if(vector != null)
+                {
+                    retVal.Add(vector.Value);
+                }
+            }
+            return retVal.ToArray();
         }
     }
 

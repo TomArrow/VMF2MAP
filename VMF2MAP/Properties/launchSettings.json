@@ -2,7 +2,7 @@
   "profiles": {
     "VMF2MAP": {
       "commandName": "Project",
-      "commandLineArgs": "\"aim_ag_texture_city_advanced_d.vmf\""
+      "commandLineArgs": "\"surf_summer_d.vmf\""
     }
   }
 }
