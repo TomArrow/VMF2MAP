@@ -444,12 +444,13 @@ namespace VMF2MAP
                                     double rowProgress = (double)j / (double)(side.dispinfo.normals[0].Length - 1);
                                     double colProgress = (double)i / (double)(side.dispinfo.normals.Length - 1);
                                     Vector3 point = side.points[startIndex]
-                                            +(
-                                                cd*(float)colProgress*(1.0f - (float)rowProgress)+
-                                                ba* (float)colProgress * (float)rowProgress
+                                            + (
+                                                cd * (float)colProgress * (1.0f - (float)rowProgress) +
+                                                ba * (float)colProgress * (float)rowProgress
                                             )
-                                            + (cb* ((float)rowProgress))
-                                            + (side.dispinfo.normals[i][j] * ((float)side.dispinfo.distances[i][j]));
+                                            + (cb * ((float)rowProgress))
+                                            //+ (side.dispinfo.normals[i][j] * ((float)side.dispinfo.distances[i][j]));
+                                            + (side.dispinfo.normals[j][i] * ((float)side.dispinfo.distances[j][i]));
                                     //verticies.Add(point);
                                     points[i, j] = point;
                                 }
@@ -488,7 +489,6 @@ namespace VMF2MAP
                         }
 
 
-                        Console.WriteLine("do something with the points.");
                     }
 
                     if (!displacementDetected)
