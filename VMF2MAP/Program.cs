@@ -36,6 +36,7 @@ namespace VMF2MAP
             var entities = PcreRegex.Matches(vmfText, entityMatcher);
 
             StringBuilder output = new StringBuilder();
+            StringBuilder ditched = new StringBuilder();
 
             foreach(var entity in entities)
             {
@@ -77,6 +78,8 @@ namespace VMF2MAP
 
                 foreach(var brush in brushMatches)
                 {
+                    bool displacementDetected = false;
+                    StringBuilder brushText = new StringBuilder();
                     string brushType = brush.Groups["brushtype"].Value;
                     string brushData = brush.Groups["brush"].Value;
 
@@ -87,7 +90,7 @@ namespace VMF2MAP
 
 
                     //output.Append("\t{\n\tbrushDef\n\t{\n");
-                    output.Append("\t{\n");
+                    brushText.Append("\t{\n");
 
                     var brushPropsSubGroupsMatch = PcreRegex.Match(brushData, propsBrushMatcher);
 
@@ -116,56 +119,72 @@ namespace VMF2MAP
                         var sidePropsMatch = PcreRegex.Match(sideContent, propsBrushMatcher);
 
                         string sidePropsString = sidePropsMatch.Groups["properties"].Value;
-                        //string sideContentstuff = sidePropsMatch.Groups["brushes"].Value; // Irrelevant
+                        string sideContentstuff = sidePropsMatch.Groups["brushes"].Value; // Irrelevant
 
+                        if( !string.IsNullOrWhiteSpace(sideContentstuff))
+                        {
+                            var sideContentMatches = PcreRegex.Matches(sideContentstuff, brushesMatcher);
+                            foreach(var sideContentMatch in sideContentMatches)
+                            {
+
+                                string sideContentType = sideContentMatch.Groups["brushtype"].Value;
+                                string sideContentContent = sideContentMatch.Groups["brush"].Value;
+                                if (sideContentType.Equals("dispinfo", StringComparison.InvariantCultureIgnoreCase))
+                                {
+                                    displacementDetected = true;
+                                }
+                                Console.WriteLine($"Side content type {sideContentType} found. Ignoring.");
+                                ditched.Append(sideContentstuff);
+                            }
+                        }
 
                         EntityProperties sideProps = EntityProperties.FromString(sidePropsString);
 
-                        output.Append("\t\t");
+                        brushText.Append("\t\t");
 
                         if(entityOffset is null)
                         {
-                            output.Append(sideProps["plane"].Replace("(", "( ").Replace(")", " )"));
+                            brushText.Append(sideProps["plane"].Replace("(", "( ").Replace(")", " )"));
                         } else
                         {
                             Vector3[] vectors = parseVector3Array(sideProps["plane"]);
                             if(vectors.Length != 3)
                             {
                                 Console.WriteLine($"plane consisted of {vectors.Length} vectors. Wtf. This will be ruined.");
-                                output.Append(sideProps["plane"].Replace("(", "( ").Replace(")", " )"));
+                                brushText.Append(sideProps["plane"].Replace("(", "( ").Replace(")", " )"));
                             } else
                             {
                                 vectors[0] -= entityOffset.Value;
                                 vectors[1] -= entityOffset.Value;
                                 vectors[2] -= entityOffset.Value;
 
-                                output.Append("( ");
-                                output.Append(vectors[0].X.ToString("0.###"));
-                                output.Append(" ");
-                                output.Append(vectors[0].Y.ToString("0.###"));
-                                output.Append(" ");
-                                output.Append(vectors[0].Z.ToString("0.###"));
-                                output.Append(" ");
-                                output.Append(" ) ( ");
-                                output.Append(vectors[1].X.ToString("0.###"));
-                                output.Append(" ");
-                                output.Append(vectors[1].Y.ToString("0.###"));
-                                output.Append(" ");
-                                output.Append(vectors[1].Z.ToString("0.###"));
-                                output.Append(" ");
-                                output.Append(" ) ( ");
-                                output.Append(vectors[2].X.ToString("0.###"));
-                                output.Append(" ");
-                                output.Append(vectors[2].Y.ToString("0.###"));
-                                output.Append(" ");
-                                output.Append(vectors[2].Z.ToString("0.###"));
-                                output.Append(" ) ");
+                                brushText.Append("( ");
+                                brushText.Append(vectors[0].X.ToString("0.###"));
+                                brushText.Append(" ");
+                                brushText.Append(vectors[0].Y.ToString("0.###"));
+                                brushText.Append(" ");
+                                brushText.Append(vectors[0].Z.ToString("0.###"));
+                                brushText.Append(" ");
+                                brushText.Append(" ) ( ");
+                                brushText.Append(vectors[1].X.ToString("0.###"));
+                                brushText.Append(" ");
+                                brushText.Append(vectors[1].Y.ToString("0.###"));
+                                brushText.Append(" ");
+                                brushText.Append(vectors[1].Z.ToString("0.###"));
+                                brushText.Append(" ");
+                                brushText.Append(" ) ( ");
+                                brushText.Append(vectors[2].X.ToString("0.###"));
+                                brushText.Append(" ");
+                                brushText.Append(vectors[2].Y.ToString("0.###"));
+                                brushText.Append(" ");
+                                brushText.Append(vectors[2].Z.ToString("0.###"));
+                                brushText.Append(" ) ");
                             }
                         }
 
 
-                        //output.Append(" (");
-                        output.Append(" ");
+                        //brushText.Append(" (");
+                        brushText.Append(" ");
 
                         Vector3 uaxis = new Vector3();
                         Vector3 vaxis = new Vector3();
@@ -198,20 +217,20 @@ namespace VMF2MAP
                         //}
 
                         /*
-                        output.Append(" ( ");
-                        output.Append(uaxis.X.ToString("0.###"));
-                        output.Append(" ");
-                        output.Append(uaxis.Y.ToString("0.###"));
-                        output.Append(" ");
-                        output.Append(uaxis.Z.ToString("0.###"));
-                        output.Append(" ) ( ");
-                        output.Append(vaxis.X.ToString("0.###"));
-                        output.Append(" ");
-                        output.Append(vaxis.Y.ToString("0.###"));
-                        output.Append(" ");
-                        output.Append(vaxis.Z.ToString("0.###"));
+                        brushText.Append(" ( ");
+                        brushText.Append(uaxis.X.ToString("0.###"));
+                        brushText.Append(" ");
+                        brushText.Append(uaxis.Y.ToString("0.###"));
+                        brushText.Append(" ");
+                        brushText.Append(uaxis.Z.ToString("0.###"));
+                        brushText.Append(" ) ( ");
+                        brushText.Append(vaxis.X.ToString("0.###"));
+                        brushText.Append(" ");
+                        brushText.Append(vaxis.Y.ToString("0.###"));
+                        brushText.Append(" ");
+                        brushText.Append(vaxis.Z.ToString("0.###"));
 
-                        output.Append(" ) ) ");*/
+                        brushText.Append(" ) ) ");*/
 
                         string material = sideProps["material"];
 
@@ -230,6 +249,8 @@ namespace VMF2MAP
                                     material = "system/clip";
                                     break;
                                 case "tools/toolstrigger":
+                                case "tools/toolsteleport": // Not really official?
+                                case "tools/toolstrigger_black": // Not really official?
                                     material = "system/trigger";
                                     break;
                                 case "tools/toolsinvisible":
@@ -252,45 +273,49 @@ namespace VMF2MAP
 
                         }
 
-                        output.Append(material);
+                        brushText.Append(material);
 
 
-                        output.Append(" [ ");
-                        output.Append(uaxis.X.ToString("0.###"));
-                        output.Append(" ");
-                        output.Append(uaxis.Y.ToString("0.###"));
-                        output.Append(" ");
-                        output.Append(uaxis.Z.ToString("0.###"));
-                        output.Append(" ");
-                        output.Append(uAxis4th.ToString("0.###"));
-                        output.Append(" ] [ ");
-                        output.Append(vaxis.X.ToString("0.###"));
-                        output.Append(" ");
-                        output.Append(vaxis.Y.ToString("0.###"));
-                        output.Append(" ");
-                        output.Append(vaxis.Z.ToString("0.###"));
-                        output.Append(" ");
-                        output.Append(vAxis4th.ToString("0.###"));
+                        brushText.Append(" [ ");
+                        brushText.Append(uaxis.X.ToString("0.###"));
+                        brushText.Append(" ");
+                        brushText.Append(uaxis.Y.ToString("0.###"));
+                        brushText.Append(" ");
+                        brushText.Append(uaxis.Z.ToString("0.###"));
+                        brushText.Append(" ");
+                        brushText.Append(uAxis4th.ToString("0.###"));
+                        brushText.Append(" ] [ ");
+                        brushText.Append(vaxis.X.ToString("0.###"));
+                        brushText.Append(" ");
+                        brushText.Append(vaxis.Y.ToString("0.###"));
+                        brushText.Append(" ");
+                        brushText.Append(vaxis.Z.ToString("0.###"));
+                        brushText.Append(" ");
+                        brushText.Append(vAxis4th.ToString("0.###"));
 
-                        output.Append(" ]  ");
+                        brushText.Append(" ]  ");
 
-                        output.Append(" 0 ");
-                        output.Append(uAxisScale.ToString("0.###"));
-                        output.Append(" ");
-                        output.Append(vAxisScale.ToString("0.###"));
+                        brushText.Append(" 0 ");
+                        brushText.Append(uAxisScale.ToString("0.###"));
+                        brushText.Append(" ");
+                        brushText.Append(vAxisScale.ToString("0.###"));
                         if (isDetail)
                         {
-                            output.Append($" {detailFlag}");
+                            brushText.Append($" {detailFlag} 0 0");
                         }
-                        output.Append("\n");
+                        brushText.Append("\n");
 
-                        //output.Append(isDetail ? $" {detailFlag}" : " 0");
-                        //output.Append(" 0 0\n");
+                        //brushText.Append(isDetail ? $" {detailFlag}" : " 0");
+                        //brushText.Append(" 0 0\n");
 
                     }
 
-                    //output.Append("\t}\n\t}\n");
-                    output.Append("\t}\n");
+                    //brushText.Append("\t}\n\t}\n");
+                    brushText.Append("\t}\n");
+                    //if (!displacementDetected)
+                    {
+                        output.Append(brushText);
+                    }
                 }
 
                 //output.Append(brushes);
@@ -299,6 +324,7 @@ namespace VMF2MAP
             }
 
             File.WriteAllText($"{args[0]}.map",output.ToString());
+            File.WriteAllText($"{args[0]}.ditched",ditched.ToString());
         }
 
 
