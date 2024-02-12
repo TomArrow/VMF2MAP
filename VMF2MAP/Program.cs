@@ -88,6 +88,8 @@ namespace VMF2MAP
                         Console.WriteLine($"Brush type '{brushType}' found, but not supported. Converting but may cause issues.");
                     }
 
+                    List<Side> sides = new List<Side>(); // Need this for displacement
+
 
                     //output.Append("\t{\n\tbrushDef\n\t{\n");
                     brushText.Append("\t{\n");
@@ -121,6 +123,8 @@ namespace VMF2MAP
                         string sidePropsString = sidePropsMatch.Groups["properties"].Value;
                         string sideContentstuff = sidePropsMatch.Groups["brushes"].Value; // Irrelevant
 
+                        Displacement? dispInfo = null;
+
                         if( !string.IsNullOrWhiteSpace(sideContentstuff))
                         {
                             var sideContentMatches = PcreRegex.Matches(sideContentstuff, brushesMatcher);
@@ -132,9 +136,78 @@ namespace VMF2MAP
                                 if (sideContentType.Equals("dispinfo", StringComparison.InvariantCultureIgnoreCase))
                                 {
                                     displacementDetected = true;
+
+                                    dispInfo = new Displacement();
+                                    var displacementPropsMatch = PcreRegex.Match(sideContentContent, propsBrushMatcher);
+                                    string displacementPropsString = displacementPropsMatch.Groups["properties"].Value;
+                                    EntityProperties displacementProps = EntityProperties.FromString(displacementPropsString);
+
+                                    dispInfo.startposition = parseVector3(displacementProps["startposition"].Trim().Trim(new char[] { ']', '[' })).Value;
+
+                                    if (entityOffset != null)
+                                    {
+                                        dispInfo.startposition -= entityOffset.Value;
+                                    }
+
+                                    dispInfo.power = int.Parse(displacementProps["power"]);
+
+                                    string displacementContent = displacementPropsMatch.Groups["brushes"].Value; // Irrelevant
+                                    var displacementContentMatches = PcreRegex.Matches(displacementContent, brushesMatcher);
+                                    foreach (var displacementContentMatch in displacementContentMatches)
+                                    {
+                                        string displacementContentType = displacementContentMatch.Groups["brushtype"].Value;
+                                        string displacementContentContent = displacementContentMatch.Groups["brush"].Value;
+
+                                        var displacementContentPropsMatch = PcreRegex.Match(displacementContentContent, propsBrushMatcher);
+
+                                        string displacementContentPropsString = displacementContentPropsMatch.Groups["properties"].Value;
+
+                                        EntityProperties displacementContentProps = EntityProperties.FromString(displacementContentPropsString);
+
+                                        if (displacementContentType.Equals("normals",StringComparison.InvariantCultureIgnoreCase))
+                                        {
+                                            List<Vector3[]> normals = new List<Vector3[]>();
+                                            int row = 0;
+                                            while (displacementContentProps.ContainsKey($"row{row}"))
+                                            {
+                                                string rowData = displacementContentProps[$"row{row}"];
+                                                normals.Add(parseVector3Array(rowData));
+                                                row++;
+                                            }
+                                            dispInfo.normals = normals.ToArray();
+                                        }
+                                        else if (displacementContentType.Equals("distances", StringComparison.InvariantCultureIgnoreCase))
+                                        {
+                                            List<double[]> distances = new List<double[]>();
+                                            int row = 0;
+                                            while (displacementContentProps.ContainsKey($"row{row}"))
+                                            {
+                                                string rowData = displacementContentProps[$"row{row}"];
+                                                distances.Add(parseDoubleArray(rowData));
+                                                row++;
+                                            }
+                                            dispInfo.distances = distances.ToArray();
+                                        }
+                                        else if (displacementContentType.Equals("alphas", StringComparison.InvariantCultureIgnoreCase))
+                                        {
+                                            List<double[]> alphas = new List<double[]>();
+                                            int row = 0;
+                                            while (displacementContentProps.ContainsKey($"row{row}"))
+                                            {
+                                                string rowData = displacementContentProps[$"row{row}"];
+                                                alphas.Add(parseDoubleArray(rowData));
+                                                row++;
+                                            }
+                                            dispInfo.alphas = alphas.ToArray();
+                                        }
+                                    }
+
                                 }
-                                Console.WriteLine($"Side content type {sideContentType} found. Ignoring.");
-                                ditched.Append(sideContentstuff);
+                                else {
+                                    Console.WriteLine($"Side content type {sideContentType} found. Ignoring.");
+                                    ditched.Append(sideContentstuff);
+                                }
+
                             }
                         }
 
@@ -142,45 +215,56 @@ namespace VMF2MAP
 
                         brushText.Append("\t\t");
 
-                        if(entityOffset is null)
+                        //if(entityOffset is null)
+                        //{
+                        //    brushText.Append(sideProps["plane"].Replace("(", "( ").Replace(")", " )"));
+                        //} else
+                        //{
+                        Vector3[] vectors = parseVector3Array(sideProps["plane"]);
+                        if(vectors.Length != 3)
                         {
+                            Console.WriteLine($"plane consisted of {vectors.Length} vectors. Wtf. This will be ruined.");
                             brushText.Append(sideProps["plane"].Replace("(", "( ").Replace(")", " )"));
-                        } else
-                        {
-                            Vector3[] vectors = parseVector3Array(sideProps["plane"]);
-                            if(vectors.Length != 3)
-                            {
-                                Console.WriteLine($"plane consisted of {vectors.Length} vectors. Wtf. This will be ruined.");
-                                brushText.Append(sideProps["plane"].Replace("(", "( ").Replace(")", " )"));
-                            } else
+                        } else { 
+                            
+                            if(entityOffset != null)
                             {
                                 vectors[0] -= entityOffset.Value;
                                 vectors[1] -= entityOffset.Value;
                                 vectors[2] -= entityOffset.Value;
-
-                                brushText.Append("( ");
-                                brushText.Append(vectors[0].X.ToString("0.###"));
-                                brushText.Append(" ");
-                                brushText.Append(vectors[0].Y.ToString("0.###"));
-                                brushText.Append(" ");
-                                brushText.Append(vectors[0].Z.ToString("0.###"));
-                                brushText.Append(" ");
-                                brushText.Append(" ) ( ");
-                                brushText.Append(vectors[1].X.ToString("0.###"));
-                                brushText.Append(" ");
-                                brushText.Append(vectors[1].Y.ToString("0.###"));
-                                brushText.Append(" ");
-                                brushText.Append(vectors[1].Z.ToString("0.###"));
-                                brushText.Append(" ");
-                                brushText.Append(" ) ( ");
-                                brushText.Append(vectors[2].X.ToString("0.###"));
-                                brushText.Append(" ");
-                                brushText.Append(vectors[2].Y.ToString("0.###"));
-                                brushText.Append(" ");
-                                brushText.Append(vectors[2].Z.ToString("0.###"));
-                                brushText.Append(" ) ");
                             }
+
+                            Side thisSide = new Side();
+                            thisSide.points = new Vector3[3] { vectors[0],vectors[1],vectors[2] };
+                            if(dispInfo != null)
+                            {
+                                thisSide.dispinfo = dispInfo;
+                            }
+                            sides.Add(thisSide);
+
+                            brushText.Append("( ");
+                            brushText.Append(vectors[0].X.ToString("0.###"));
+                            brushText.Append(" ");
+                            brushText.Append(vectors[0].Y.ToString("0.###"));
+                            brushText.Append(" ");
+                            brushText.Append(vectors[0].Z.ToString("0.###"));
+                            brushText.Append(" ");
+                            brushText.Append(" ) ( ");
+                            brushText.Append(vectors[1].X.ToString("0.###"));
+                            brushText.Append(" ");
+                            brushText.Append(vectors[1].Y.ToString("0.###"));
+                            brushText.Append(" ");
+                            brushText.Append(vectors[1].Z.ToString("0.###"));
+                            brushText.Append(" ");
+                            brushText.Append(" ) ( ");
+                            brushText.Append(vectors[2].X.ToString("0.###"));
+                            brushText.Append(" ");
+                            brushText.Append(vectors[2].Y.ToString("0.###"));
+                            brushText.Append(" ");
+                            brushText.Append(vectors[2].Z.ToString("0.###"));
+                            brushText.Append(" ) ");
                         }
+                        //}
 
 
                         //brushText.Append(" (");
@@ -312,6 +396,59 @@ namespace VMF2MAP
 
                     //brushText.Append("\t}\n\t}\n");
                     brushText.Append("\t}\n");
+
+                    if (displacementDetected)
+                    {
+                        List<Vector3> verticies = new List<Vector3>();
+                        Solid solid = new Solid();
+                        solid.sides = sides.ToArray();
+
+                        List<Side> completedSides = new List<Side>();
+                        foreach(Side side in sides)
+                        {
+                            completedSides.Add(Side.completeSide(side, solid));
+                        }
+
+                        Solid finishedSolid = new Solid();
+                        finishedSolid.sides = completedSides.ToArray();
+
+
+                        foreach(Side side in finishedSolid.sides)
+                        {
+                            if (side.dispinfo == null) continue;
+
+                            int startIndex = side.dispinfo.startposition.closestIndex(side.points);
+                            //Get adjacent points by going around counter-clockwise
+                            Vector3 a = side.points[MathExtensions.FloorMod((startIndex - 2), 4)];
+                            Vector3 b = side.points[MathExtensions.FloorMod((startIndex - 1), 4)];
+                            Vector3 c = side.points[startIndex];
+                            Vector3 d = side.points[MathExtensions.FloorMod((startIndex + 1), 4)];
+                            Vector3 cd = d-c;
+                            Vector3 cb = b-c;
+                            Vector3 ba = a-b;
+                            // logger.log(Level.FINE, cd);
+                            // logger.log(Level.FINE, cb);
+                            for (int i = 0; i < side.dispinfo.normals.Length; i++)
+                            { // rows
+                                for (int j = 0; j < side.dispinfo.normals[0].Length; j++)
+                                { // columns
+                                    double rowProgress = (double)j / (double)(side.dispinfo.normals[0].Length - 1);
+                                    double colProgress = (double)i / (double)(side.dispinfo.normals.Length - 1);
+                                    Vector3 point = side.points[startIndex]
+                                            +(
+                                                cd*(float)colProgress*(1.0f - (float)rowProgress)+
+                                                ba* (float)colProgress * (float)rowProgress
+                                            )
+                                            + (cb* ((float)rowProgress))
+                                            + (side.dispinfo.normals[i][j] * ((float)side.dispinfo.distances[i][j]));
+                                    verticies.Add(point);
+                                }
+                            }
+                        }
+
+                        Console.WriteLine("do something with the points.");
+                    }
+
                     //if (!displacementDetected)
                     {
                         output.Append(brushText);
@@ -351,6 +488,26 @@ namespace VMF2MAP
             if (!parseSuccess) return null;
 
             return parsedColor;
+        }
+        static private double[]? parseDoubleArray(string colorString)
+        {
+            string prefilteredColor = emptySpaceRegex.Replace(colorString, " ");
+            string[] components = prefilteredColor.Split(' ');
+
+            if (components.Length < 1)
+            {
+                Trace.WriteLine("Vector3 with less than 3 components, skipping, weird.");
+                return null;
+            }
+
+            List<double> retVal = new List<double>();
+
+            foreach (string component in components)
+            {
+                retVal.Add(double.Parse(component));
+            }
+
+            return retVal.ToArray();
         }
 
         static Regex numberVectorRegex = new Regex(@"([-\d\.\+E]+)\s+([-\d\.\+E]+)\s+([-\d\.\+E]+)",RegexOptions.Compiled|RegexOptions.IgnoreCase);
