@@ -399,7 +399,7 @@ namespace VMF2MAP
 
                     if (displacementDetected)
                     {
-                        List<Vector3> verticies = new List<Vector3>();
+                        //List<Vector3> verticies = new List<Vector3>();
                         Solid solid = new Solid();
                         solid.sides = sides.ToArray();
 
@@ -417,7 +417,16 @@ namespace VMF2MAP
                         {
                             if (side.dispinfo == null) continue;
 
+
+                            StringBuilder patchString = new StringBuilder();
+
+                            patchString.Append("\n{\npatchDef2\n{");
+                            patchString.Append($"\nNULL\n( {side.dispinfo.normals.Length} {side.dispinfo.normals[0].Length} 0 0 0 )\n(");
+
                             int startIndex = side.dispinfo.startposition.closestIndex(side.points);
+
+                            Vector3[,] points = new Vector3[side.dispinfo.normals.Length, side.dispinfo.normals[0].Length]; 
+
                             //Get adjacent points by going around counter-clockwise
                             Vector3 a = side.points[MathExtensions.FloorMod((startIndex - 2), 4)];
                             Vector3 b = side.points[MathExtensions.FloorMod((startIndex - 1), 4)];
@@ -441,22 +450,55 @@ namespace VMF2MAP
                                             )
                                             + (cb* ((float)rowProgress))
                                             + (side.dispinfo.normals[i][j] * ((float)side.dispinfo.distances[i][j]));
-                                    verticies.Add(point);
+                                    //verticies.Add(point);
+                                    points[i, j] = point;
                                 }
                             }
+
+
+                            for (int i = 0; i < side.dispinfo.normals.Length; i++)
+                            { // rows
+                                patchString.Append($"\n(");
+
+                                for (int j = 0; j < side.dispinfo.normals[0].Length; j++)
+                                { // columns
+
+                                    Vector3 point = points[i, j];
+                                    patchString.Append($" ( ");
+                                    patchString.Append(point.X.ToString("0.###"));
+                                    patchString.Append(" ");
+                                    patchString.Append(point.Y.ToString("0.###"));
+                                    patchString.Append(" ");
+                                    patchString.Append(point.Z.ToString("0.###"));
+                                    patchString.Append($" 0 0 )");
+
+                                }
+
+                                patchString.Append($" )");
+                            }
+
+
+
+
+                            patchString.Append("\n)");
+
+                            patchString.Append("\n}\n}"); 
+                            
+                            output.Append(patchString);
                         }
+
 
                         Console.WriteLine("do something with the points.");
                     }
 
-                    //if (!displacementDetected)
+                    if (!displacementDetected)
                     {
                         output.Append(brushText);
                     }
                 }
 
                 //output.Append(brushes);
-                output.Append("}\n");
+                output.Append("\n}\n");
 
             }
 
