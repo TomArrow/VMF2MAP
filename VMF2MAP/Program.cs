@@ -369,10 +369,14 @@ namespace VMF2MAP
 
                         }
 
+                        material = material.Replace(' ','_');
+
                         thisSide.material = material;
                         sides.Add(thisSide);
 
+                        brushText.Append('"');
                         brushText.Append(material);
+                        brushText.Append('"');
 
 
                         brushText.Append(" [ ");
@@ -436,7 +440,7 @@ namespace VMF2MAP
                             StringBuilder patchString = new StringBuilder();
 
                             patchString.Append("\n{\npatchDef2\n{");
-                            patchString.Append($"\n{side.material}\n( {side.dispinfo.normals.Length} {side.dispinfo.normals[0].Length} 0 0 0 )\n(");
+                            patchString.Append($"\n\"{side.material}\"\n( {side.dispinfo.normals.Length} {side.dispinfo.normals[0].Length} 0 0 0 )\n(");
 
                             int startIndex = side.dispinfo.startposition.closestIndex(side.points);
 
