@@ -15,9 +15,9 @@ namespace VMF2MAP
     {
 
 
-        // TODO Proper point interpolation for patches
-        // TODO Proper texturing for patches
-        // TODO Where are the damn surf ramps Lebowski
+        // TODO Proper point interpolation for patches - done
+        // TODO Proper texturing for patches - done
+        // TODO Where are the damn surf ramps Lebowski - they were models rip
 
 
         static string entityMatcher = @"(?<entityName>(?:[-_\w\d:]|(?<!\/)\/)+)?\s*(?:\/\/[^\n]+\s*)*+(?<entityContent>\{(?:[^\{\}]++|(?R))*\})";
@@ -483,6 +483,30 @@ namespace VMF2MAP
                             }
 
 
+                            // Figure out correct control points so that the actual surfaces goes through the intended point. Not sure if correct, I don't understand it. Thanks for hints @ SomaZ!
+                            //points[1].Z = (4.0f * points[1].Z - points[0].Z - points[2].Z) * 0.5f;
+                            //points[7].Z = (4.0f * points[7].Z - points[8].Z - points[6].Z) * 0.5f;
+                            //points[3].Z = (4.0f * points[3].Z - points[0].Z - points[6].Z) * 0.5f;
+                            //points[5].Z = (4.0f * points[5].Z - points[2].Z - points[8].Z) * 0.5f;
+                            //points[4].Z = ((4.0f * points[4].Z - points[3].Z - points[5].Z) * 0.5f + (4.0f * points[4].Z - points[1].Z - points[7].Z) * 0.5f) * 0.5f;
+
+                            Vector3[,] interpolatedPoints = (Vector3[,])points.Clone();
+
+                            // Figure out correct control points so that the actual surfaces goes through the intended point. Not sure if correct, I don't understand it. Thanks for hints @ SomaZ!
+                            for (int x= side.dispinfo.normals.Length-2;x>0;x-=2) {
+                                for (int y= side.dispinfo.normals.Length-1;y>=0;y-=2) {
+                                    interpolatedPoints[x, y] = interpolatedPoints[x, y].CorrectControlPoint(interpolatedPoints[x-1, y], interpolatedPoints[x + 1, y]);
+                                    interpolatedPoints[y, x] = interpolatedPoints[y, x].CorrectControlPoint(interpolatedPoints[y, x-1], interpolatedPoints[y, x+1]);
+                                }
+                            }
+                            for (int x= side.dispinfo.normals.Length-2;x>0;x-=2) {
+                                for (int y= side.dispinfo.normals.Length-2;y>0;y-=2) {
+                                    interpolatedPoints[x, y] = interpolatedPoints[x, y].CorrectControlPoint(interpolatedPoints[x-1, y], interpolatedPoints[x + 1, y]);
+                                    interpolatedPoints[y, x] = interpolatedPoints[y, x].CorrectControlPoint(interpolatedPoints[y, x-1], interpolatedPoints[y, x+1]);
+                                }
+                            }
+
+
                             for (int i = 0; i < side.dispinfo.normals.Length; i++)
                             { // rows
                                 patchString.Append($"\n(");
@@ -490,7 +514,7 @@ namespace VMF2MAP
                                 for (int j = 0; j < side.dispinfo.normals[0].Length; j++)
                                 { // columns
 
-                                    Vector3 point = points[i, j];
+                                    Vector3 point = interpolatedPoints[i, j];
                                     Vector2 uvPoint = uvPoints[i, j];
                                     patchString.Append($" ( ");
                                     patchString.Append(point.X.ToString("0.###"));
@@ -558,6 +582,8 @@ namespace VMF2MAP
 
             return parsedColor;
         }
+
+
         static private double[]? parseDoubleArray(string colorString)
         {
             string prefilteredColor = emptySpaceRegex.Replace(colorString, " ");
@@ -597,6 +623,13 @@ namespace VMF2MAP
         }
     }
 
+    public static class Vector3Extensions2
+    {
+        public static Vector3 CorrectControlPoint(this Vector3 controlPoint ,Vector3 realPoint1, Vector3 realPoint2)
+        {
+            return (4.0f * controlPoint - realPoint1 - realPoint2) * 0.5f;
+        }
+    }
 
     public class EntityProperties : Dictionary<string, string>, INotifyPropertyChanged
     {
