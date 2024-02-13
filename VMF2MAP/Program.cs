@@ -226,6 +226,7 @@ namespace VMF2MAP
                         //    brushText.Append(sideProps["plane"].Replace("(", "( ").Replace(")", " )"));
                         //} else
                         //{
+                        Side thisSide = new Side();
                         Vector3[] vectors = parseVector3Array(sideProps["plane"]);
                         if(vectors.Length != 3)
                         {
@@ -240,13 +241,11 @@ namespace VMF2MAP
                                 vectors[2] -= entityOffset.Value;
                             }
 
-                            Side thisSide = new Side();
                             thisSide.points = new Vector3[3] { vectors[0],vectors[1],vectors[2] };
                             if(dispInfo != null)
                             {
                                 thisSide.dispinfo = dispInfo;
                             }
-                            sides.Add(thisSide);
 
                             brushText.Append("( ");
                             brushText.Append(vectors[0].X.ToString("0.###"));
@@ -300,6 +299,13 @@ namespace VMF2MAP
                         float vAxis4th = float.Parse(vAxisResult.Groups[4].Value);
                         float vAxisScale = float.Parse(vAxisResult.Groups[5].Value);
                         //vaxis *= vAxisScale;
+
+                        thisSide.uAxisVector = uaxis;
+                        thisSide.uAxisTranslation = uAxis4th;
+                        thisSide.uAxisScale = uAxisScale;
+                        thisSide.vAxisVector = vaxis;
+                        thisSide.vAxisTranslation = vAxis4th;
+                        thisSide.vAxisScale = vAxisScale;
 
                         //if(vAxis4th != 0.0f)
                         //{
@@ -362,6 +368,9 @@ namespace VMF2MAP
                             }
 
                         }
+
+                        thisSide.material = material;
+                        sides.Add(thisSide);
 
                         brushText.Append(material);
 
@@ -427,11 +436,12 @@ namespace VMF2MAP
                             StringBuilder patchString = new StringBuilder();
 
                             patchString.Append("\n{\npatchDef2\n{");
-                            patchString.Append($"\nNULL\n( {side.dispinfo.normals.Length} {side.dispinfo.normals[0].Length} 0 0 0 )\n(");
+                            patchString.Append($"\n{side.material}\n( {side.dispinfo.normals.Length} {side.dispinfo.normals[0].Length} 0 0 0 )\n(");
 
                             int startIndex = side.dispinfo.startposition.closestIndex(side.points);
 
                             Vector3[,] points = new Vector3[side.dispinfo.normals.Length, side.dispinfo.normals[0].Length]; 
+                            Vector2[,] uvPoints = new Vector2[side.dispinfo.normals.Length, side.dispinfo.normals[0].Length]; 
 
                             //Get adjacent points by going around counter-clockwise
                             Vector3 a = side.points[MathExtensions.FloorMod((startIndex - 2), 4)];
@@ -443,6 +453,10 @@ namespace VMF2MAP
                             Vector3 ba = a-b;
                             // logger.log(Level.FINE, cd);
                             // logger.log(Level.FINE, cb);
+
+                            int textureWidth = 512;
+                            int textureHeight = 512; // Cant be helped
+
                             for (int i = 0; i < side.dispinfo.normals.Length; i++)
                             { // rows
                                 for (int j = 0; j < side.dispinfo.normals[0].Length; j++)
@@ -458,7 +472,13 @@ namespace VMF2MAP
                                             //+ (side.dispinfo.normals[i][j] * ((float)side.dispinfo.distances[i][j]));
                                             + (side.dispinfo.normals[j][i] * ((float)side.dispinfo.distances[j][i]));
                                     //verticies.Add(point);
+                                    float u = Vector3.Dot(point, side.uAxisVector) / ((float)textureWidth * (float)side.uAxisScale)
+                                        + (float)side.uAxisTranslation / (float)textureWidth;
+                                    float v = Vector3.Dot(point, side.vAxisVector) / ((float)textureHeight * (float)side.vAxisScale)
+                                            + (float)side.vAxisTranslation / (float)textureHeight;
+                                    v = -v + (float)textureHeight;
                                     points[i, j] = point;
+                                    uvPoints[i, j] = new Vector2() { X=u,Y=v };
                                 }
                             }
 
@@ -471,13 +491,14 @@ namespace VMF2MAP
                                 { // columns
 
                                     Vector3 point = points[i, j];
+                                    Vector2 uvPoint = uvPoints[i, j];
                                     patchString.Append($" ( ");
                                     patchString.Append(point.X.ToString("0.###"));
                                     patchString.Append(" ");
                                     patchString.Append(point.Y.ToString("0.###"));
                                     patchString.Append(" ");
                                     patchString.Append(point.Z.ToString("0.###"));
-                                    patchString.Append($" 0 0 )");
+                                    patchString.Append($" {uvPoint.X} {uvPoint.Y} )");
 
                                 }
 
