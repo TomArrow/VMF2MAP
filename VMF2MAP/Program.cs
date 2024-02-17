@@ -19,10 +19,11 @@ namespace VMF2MAP
         // TODO Proper texturing for patches - done
         // TODO Where are the damn surf ramps Lebowski - they were models rip
 
-
-        static string entityMatcher = @"(?<entityName>(?:[-_\w\d:]|(?<!\/)\/)+)?\s*(?:\/\/[^\n]+\s*)*+(?<entityContent>\{(?:[^\{\}]++|(?R))*\})";
+        //static string entityMatcher = @"(?<entityName>(?:[-_\w\d:]|(?<!\/)\/)+)?\s*(?:\/\/[^\n]+\s*)*+(?<entityContent>\{(?:[^\{\}]++|(?R))*\})";
+        static string entityMatcher = @"(?<entityName>(?:[-_\w\d:]|(?<!\/)\/)+)?\s*(?:\/\/[^\n]+\s*)*+(?<entityContent>(?<=\s)\{(?:[^\{\}]++|(?:(?<!\s)[\{\}])++|(?R))*(?<=\s)\})";
         //static string propsBrushMatcher = @"\{(?<properties>[^\{\}]+)(?<brushes>(?:\{(?:[^\{\}]+|(?R))*\}(?:[^\{\}]+))*)\s*\}";
-        static string propsBrushMatcher = @"\{(?<properties>[^\{\}]+)(?<brushes>(?:\s\w+\s*\n\s+\{(?:[^\{\}]+|(?R))*\}(?:[^\{\}]+))*)\s*\}";
+        //static string propsBrushMatcher = @"\{(?<properties>[^\{\}]+)(?<brushes>(?:\s\w+\s*\n\s+\{(?:[^\{\}]+|(?R))*\}(?:[^\{\}]+))*)\s*\}";
+        static string propsBrushMatcher = @"(?<=\s|^)\{(?<properties>(?:[^\{\}]+|(?:(?<!\s)[\{\}]+))+)(?<brushes>(?:\s\w+\s*\n\s+(?<=\s)\{(?:[^\{\}]++|(?:(?<!\s)[\{\}])++|(?R))*+(?<=\s)\}(?:[^\{\}]+))*)\s*(?<=\s)\}";
         static string brushesMatcher = @"(?<brushtype>\w+)\s*\n\s+(?<brush>\{(?:[^\{\}]+|(?R))*\})";
 
         static Regex uvaxisRegex = new Regex(@"\s*\[\s*([-\d\.\+E]+)\s+([-\d\.\+E]+)\s+([-\d\.\+E]+)\s+([-\d\.\+E]+)\s*\]\s*([-\d\.\+E]+)\s*", RegexOptions.IgnoreCase|RegexOptions.Compiled);
