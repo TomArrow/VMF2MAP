@@ -23,8 +23,12 @@ namespace VMF2MAP
         static string entityMatcher = @"(?<entityName>(?:[-_\w\d:]|(?<!\/)\/)+)?\s*(?:\/\/[^\n]+\s*)*+(?<entityContent>(?<=\s)\{(?:[^\{\}]++|(?:(?<!\s)[\{\}])++|(?R))*(?<=\s)\})";
         //static string propsBrushMatcher = @"\{(?<properties>[^\{\}]+)(?<brushes>(?:\{(?:[^\{\}]+|(?R))*\}(?:[^\{\}]+))*)\s*\}";
         //static string propsBrushMatcher = @"\{(?<properties>[^\{\}]+)(?<brushes>(?:\s\w+\s*\n\s+\{(?:[^\{\}]+|(?R))*\}(?:[^\{\}]+))*)\s*\}";
-        static string propsBrushMatcher = @"(?<=\s|^)\{(?<properties>(?:[^\{\}]+|(?:(?<!\s)[\{\}]+))+)(?<brushes>(?:\s\w+\s*\n\s+(?<=\s)\{(?:[^\{\}]++|(?:(?<!\s)[\{\}])++|(?R))*+(?<=\s)\}(?:[^\{\}]+))*)\s*(?<=\s)\}";
-        static string brushesMatcher = @"(?<brushtype>\w+)\s*\n\s+(?<brush>\{(?:[^\{\}]+|(?R))*\})";
+        //static string propsBrushMatcher = @"(?<=\s|^)\{(?<properties>(?:[^\{\}]+|(?:(?<!\s)[\{\}]+))+)(?<brushes>(?:\s\w+\s*\n\s+(?<=\s)\{(?:[^\{\}]++|(?:(?<!\s)[\{\}])++|(?R))*+(?<=\s)\}(?:[^\{\}]+))*)\s*(?<=\s)\}";
+        //static string propsBrushMatcher = @"(?<=\s|^)\{(?<properties>(?:[^\{\}]+|(?:(?<!\s)[\{\}]))+?)(?<brushes>(?:\s\w+\s*\n\s+(?<=\s)\{(?:[^\{\}]++|(?:(?<!\s)[\{\}])++|(?R))*+(?<=\s)\}(?:[^\{\}]+))*)\s*(?<=\s)\}";
+        //static string propsBrushMatcher = @"(?<=\s|^)\{(?<properties>(?:\s+""[^""]++"")*+)(?<brushes>(?:\s*\w++\s*?[\n\r]++\s++(?<=\s)\{(?:[^\{\}]++|(?:(?<!\s)[\{\}])++|(?R))*+(?<=\s)\})*)\s+\}";
+        static string propsBrushMatcher = @"(?<=\s|^)\{(?<properties>(?:\s+""[^""]*+"")*+)(?<brushes>(?:\s*\w++\s*?[\n\r]++\s++(?<=\s)\{(?:[^\{\}]++|(?:(?<!\s)[\{\}])++|(?R))*+(?<=\s)\})*)\s+\}";
+        //static string brushesMatcher = @"(?<brushtype>\w+)\s*\n\s+(?<brush>\{(?:[^\{\}]+|(?R))*\})";
+        static string brushesMatcher = @"(?<brushtype>\w+)\s*[\n\r]+\s*(?<brush>(?<=\s)\{(?:[^\{\}]+|(?:(?<!\s)[\{\}])++|(?R))*(?<=\s)\})";
 
         static Regex uvaxisRegex = new Regex(@"\s*\[\s*([-\d\.\+E]+)\s+([-\d\.\+E]+)\s+([-\d\.\+E]+)\s+([-\d\.\+E]+)\s*\]\s*([-\d\.\+E]+)\s*", RegexOptions.IgnoreCase|RegexOptions.Compiled);
 
@@ -48,7 +52,9 @@ namespace VMF2MAP
             foreach(var entity in entities)
             {
                 string entType = entity.Groups["entityName"].Value;
-                var propsBrushMatch = PcreRegex.Match(entity.Groups["entityContent"].Value, propsBrushMatcher);
+                string entityContent = entity.Groups["entityContent"].Value;
+                //File.WriteAllText("testEntityContent.txt", entityContent);
+                var propsBrushMatch = PcreRegex.Match(entityContent, propsBrushMatcher);
                 string properties = propsBrushMatch.Groups["properties"].Value;
                 string brushes = propsBrushMatch.Groups["brushes"].Value;
 
@@ -80,6 +86,8 @@ namespace VMF2MAP
                    // Console.WriteLine("Skipping {props} brush analysis, no brushes found.");
                     //continue;
                 }
+
+                //File.WriteAllText("testBrushesContent.txt", brushes);
 
                 var brushMatches = PcreRegex.Matches(brushes, brushesMatcher);
 
@@ -219,6 +227,31 @@ namespace VMF2MAP
                         }
 
                         EntityProperties sideProps = EntityProperties.FromString(sidePropsString);
+
+                        bool skipping = false;
+                        if (!sideProps.ContainsKey("plane"))
+                        {
+                            Console.WriteLine($"Side (type {sideType}) missing 'plane' property. Skipping.");
+                            skipping = true;
+                        } else if (!sideProps.ContainsKey("uaxis"))
+                        {
+                            Console.WriteLine($"Side (type {sideType}) missing 'uaxis' property. Skipping.");
+                            skipping = true;
+                        } else if (!sideProps.ContainsKey("vaxis"))
+                        {
+                            Console.WriteLine($"Side (type {sideType}) missing 'vaxis' property. Skipping.");
+                            skipping = true;
+                        } else if (!sideProps.ContainsKey("material"))
+                        {
+                            Console.WriteLine($"Side (type {sideType}) missing 'material' property. Skipping.");
+                            skipping = true;
+                        }
+                        if (skipping)
+                        {
+
+                            ditched.Append(side.Value);
+                            continue;
+                        }
 
                         brushText.Append("\t\t");
 
@@ -592,7 +625,7 @@ namespace VMF2MAP
         static private double[]? parseDoubleArray(string colorString)
         {
             string prefilteredColor = emptySpaceRegex.Replace(colorString, " ");
-            string[] components = prefilteredColor.Split(' ');
+            string[] components = prefilteredColor.Split(' ',StringSplitOptions.RemoveEmptyEntries|StringSplitOptions.TrimEntries);
 
             if (components.Length < 1)
             {
@@ -673,7 +706,7 @@ namespace VMF2MAP
                     return props;
                 }
             }
-            return null;
+            return new EntityProperties();
         }
 
         public string String => this.ToString();
